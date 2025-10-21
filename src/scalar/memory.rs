@@ -1,5 +1,4 @@
 use crate::common::io::{Future, Poll};
-use crate::common::tick::Tickable;
 use crate::scalar::instruction::RawInstruction;
 
 pub struct Itcm {
@@ -8,6 +7,16 @@ pub struct Itcm {
     latency: u8,
     /// Pending read request (address, remaining latency)
     pending: Option<(u32, u8)>
+}
+
+impl Itcm {
+    pub fn new(latency: u8) -> Self {
+        Self {
+            data: [RawInstruction::default(); 2048],
+            latency,
+            pending: None
+        }
+    }
 }
 
 #[derive(Copy, Clone)]
@@ -39,12 +48,6 @@ impl Itcm {
 
     pub(crate) fn _read(&self, addr: u32) -> RawInstruction {
         todo!()
-    }
-}
-
-impl Tickable for Itcm {
-    fn tick(&mut self) {
-
     }
 }
 

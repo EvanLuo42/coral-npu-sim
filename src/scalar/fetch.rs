@@ -1,25 +1,34 @@
 use crate::common::io::{Future, Poll};
-use crate::common::tick::Tickable;
-use crate::scalar::instruction::RawInstruction;
+use crate::scalar::instruction::InstructionBuffer;
 use crate::scalar::memory::{Itcm, ItcmRead};
 
 pub struct FetchStage {
-    pub pc: u32,
-    pub instr_buffer: Vec<RawInstruction>,
-    pub pending_read: Option<ItcmRead>,
-    pub itcm: Itcm
+    pub pcs: [u32; 4],
+    pub pending_reads: [Option<ItcmRead>; 4],
 }
 
-impl Tickable for FetchStage {
-    fn tick(&mut self) {
-        match self.pending_read {
-            None => self.pending_read = Some(self.itcm.read(self.pc)),
-            Some(mut pending) => {
-                if let Poll::Ready(instr) = pending.poll(&mut self.itcm) {
-                    self.pending_read = None;
-                    self.instr_buffer.push(instr);
-                    self.pc += 4;
+impl FetchStage {
+    pub fn new() -> Self {
+        Self {
+            pcs: [0; 4],
+            pending_reads: [None; 4],
+        }
+    }
+
+    pub fn tick(&mut self, instr_buffer: &mut InstructionBuffer, itcm: &mut Itcm) {
+        for lane in 0..4 {
+            match &mut self.pending_reads[lane] {
+                None => {
+                    self.pending_reads[lane] = Some(itcm.read(self.pcs[lane]));
                 }
+                Some(pending) => match pending.poll(itcm) {
+                    Poll::Ready(instr) => {
+                        self.pending_reads[lane] = None;
+                        instr_buffer.push(instr);
+                        self.pcs[lane] += 4;
+                    }
+                    Poll::Pending => {}
+                },
             }
         }
     }
