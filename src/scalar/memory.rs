@@ -1,9 +1,11 @@
+use tracing::debug;
 use crate::common::io::{Future, Poll};
 use crate::scalar::instruction::RawInstruction;
 
 pub struct Itcm {
     /// 8KB Itcm
     data: [RawInstruction; 2048],
+    /// Simulated IO latency
     latency: u8,
     /// Pending read request (address, remaining latency)
     pending: Option<(u32, u8)>
@@ -11,8 +13,15 @@ pub struct Itcm {
 
 impl Itcm {
     pub fn new(latency: u8) -> Self {
+        let mut data = [RawInstruction::default(); 2048];
+        let nop = RawInstruction { data: 0x00000013 };
+        let addi = RawInstruction { data: 0x00100093 };
+        let add = RawInstruction { data: 0x001080B3 };
+        data[0] = nop;
+        data[1] = addi;
+        data[2] = add;
         Self {
-            data: [RawInstruction::default(); 2048],
+            data,
             latency,
             pending: None
         }
@@ -40,14 +49,18 @@ impl Future for ItcmRead {
 
 impl Itcm {
     pub fn read(&self, addr: u32) -> ItcmRead {
+        debug!("ITCM read request addr=0x{:08x}", addr);
         ItcmRead {
             addr,
-            remaining_cycles: self.latency
+            remaining_cycles: self.latency.saturating_sub(1)
         }
     }
 
     pub(crate) fn _read(&self, addr: u32) -> RawInstruction {
-        todo!()
+        debug_assert!(addr % 4 == 0, "Unaligend ITCM read: 0x{:08x}", addr);
+        let index = ((addr / 4) as usize) % self.data.len();
+        debug!("ITCM read addr=0x{:08x}, index={}, data=0x{:08x}", addr, index, self.data[index].data);
+        self.data[index]
     }
 }
 

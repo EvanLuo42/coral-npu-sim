@@ -1,4 +1,5 @@
 use std::collections::VecDeque;
+use std::fmt::{Debug, Display, Formatter};
 
 #[derive(Copy, Clone, Default)]
 pub struct RawInstruction {
@@ -20,6 +21,39 @@ pub struct Instruction {
     pub funct7: u8,
     pub imm: i32,
     pub typ: InstructionType,
+}
+
+impl Instruction {
+    fn mnemonic(&self) -> &'static str {
+        match (self.opcode, self.funct3, self.funct7) {
+            (0b0110011, 0b000, 0b0000000) => "add",
+            (0b0110011, 0b000, 0b0100000) => "sub",
+            (0b0110011, 0b111, _) => "and",
+            (0b0110011, 0b110, _) => "or",
+            (0b0110011, 0b100, _) => "xor",
+            (0b0110011, 0b001, _) => "sll",
+            (0b0110011, 0b101, 0b0000000) => "srl",
+            (0b0110011, 0b101, 0b0100000) => "sra",
+
+            (0b0010011, 0b000, _) => "addi",
+            (0b0010011, 0b010, _) => "slti",
+            (0b0010011, 0b111, _) => "andi",
+            (0b0010011, 0b110, _) => "ori",
+
+            (0b0000011, 0b010, _) => "lw",
+            (0b0100011, 0b010, _) => "sw",
+
+            (0b1100011, 0b000, _) => "beq",
+            (0b1100011, 0b001, _) => "bne",
+
+            (0b0110111, _, _) => "lui",
+            (0b0010111, _, _) => "auipc",
+            (0b1101111, _, _) => "jal",
+            (0b1100111, _, _) => "jalr",
+
+            _ => "unknown",
+        }
+    }
 }
 
 impl From<RawInstruction> for Instruction {
@@ -74,6 +108,45 @@ impl From<RawInstruction> for Instruction {
             funct7,
             imm,
             typ,
+        }
+    }
+}
+
+impl Display for Instruction {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let r = |r: u8| format!("x{}", r);
+        let name = self.mnemonic();
+
+        if name == "addi" && self.rd == 0 && self.rs1 == 0 && self.imm == 0 {
+            return write!(f, "nop");
+        }
+
+        match self.typ {
+            InstructionType::R => {
+                write!(f, "{} {}, {}, {}", name, r(self.rd), r(self.rs1), r(self.rs2))
+            }
+            InstructionType::I => {
+                write!(f, "{} {}, {}, {}", name, r(self.rd), r(self.rs1), self.imm)
+            }
+            InstructionType::S => {
+                write!(f, "{} {}, {}({})", name, r(self.rs2), self.imm, r(self.rs1))
+            }
+            InstructionType::B => {
+                write!(f, "{} {}, {}, {}", name, r(self.rs1), r(self.rs2), self.imm)
+            }
+            InstructionType::U => {
+                write!(f, "{} {}, {}", name, r(self.rd), self.imm)
+            }
+            InstructionType::J => {
+                write!(f, "{} {}, {}", name, r(self.rd), self.imm)
+            }
+            InstructionType::Unknown => {
+                write!(
+                    f,
+                    "unknown(op={:#x}, f3={}, f7={}, rd={}, rs1={}, rs2={}, imm={})",
+                    self.opcode, self.funct3, self.funct7, self.rd, self.rs1, self.rs2, self.imm
+                )
+            }
         }
     }
 }

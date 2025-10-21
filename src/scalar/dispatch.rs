@@ -1,4 +1,5 @@
 use std::collections::VecDeque;
+use tracing::debug;
 use crate::scalar::instruction::Instruction;
 
 pub struct DispatchStage {
@@ -15,8 +16,8 @@ impl DispatchStage {
     pub fn tick(&mut self) {
         for _ in 0..4 {
             if let Some(instr) = self.queue.inner.pop_front() {
-                println!("Dispatching {:?}", instr);
-                todo!("Dispatch to ALU/BRU/LSU/Vector based on instr.typ")
+                debug!("Dispatching {:?}", instr);
+                // todo!("Dispatch to ALU/BRU/LSU/Vector based on instr.typ")
             }
         }
     }

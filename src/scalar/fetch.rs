@@ -10,7 +10,7 @@ pub struct FetchStage {
 impl FetchStage {
     pub fn new() -> Self {
         Self {
-            pcs: [0; 4],
+            pcs: [0, 4, 8, 12],
             pending_reads: [None; 4],
         }
     }
@@ -25,7 +25,7 @@ impl FetchStage {
                     Poll::Ready(instr) => {
                         self.pending_reads[lane] = None;
                         instr_buffer.push(instr);
-                        self.pcs[lane] += 4;
+                        self.pcs[lane] += 4 * 4;
                     }
                     Poll::Pending => {}
                 },
