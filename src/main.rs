@@ -8,7 +8,8 @@ pub mod common;
 fn main() {
     tracing_subscriber::fmt::init();
     let mut scalar_frontend = ScalarFrontend::new();
-    for _ in 0..4 {
+    for cycle in 0..4 {
+        println!("\n===== Cycle {cycle} =====");
         scalar_frontend.tick()
     }
 }

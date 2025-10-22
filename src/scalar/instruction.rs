@@ -8,7 +8,7 @@ pub struct RawInstruction {
 }
 
 /// The type of RISC-V instruction.
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum InstructionType {
     R, I, S, B, U, J, Unknown
 }

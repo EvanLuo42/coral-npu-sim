@@ -16,12 +16,18 @@ impl Itcm {
     /// Create a new ITCM with given latency (in cycles)
     pub fn new(latency: u8) -> Self {
         let mut data = [RawInstruction::default(); 2048];
-        let nop = RawInstruction { data: 0x00000013 };
-        let addi = RawInstruction { data: 0x00100093 };
-        let add = RawInstruction { data: 0x001080B3 };
-        data[0] = nop;
-        data[1] = addi;
-        data[2] = add;
+        // add x5, x1, x2
+        data[0] = RawInstruction { data: 0x002082B3 };
+        // add x6, x5, x3
+        data[1] = RawInstruction { data: 0x00328333 };
+        // add x7, x6, x4
+        data[2] = RawInstruction { data: 0x004303B3 };
+        // sw x7, 0(x0)
+        data[3] = RawInstruction { data: 0x00702023 };
+        // lw x8, 0(x0)
+        data[4] = RawInstruction { data: 0x00002403 };
+        // add x9, x8, x5
+        data[5] = RawInstruction { data: 0x005404B3 };
         Self {
             data,
             latency,

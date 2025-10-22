@@ -4,3 +4,5 @@ mod instruction;
 mod memory;
 mod decode;
 mod dispatch;
+mod units;
+mod scoreboard;
