@@ -2,6 +2,7 @@ use tracing::debug;
 use crate::common::io::{Future, Poll};
 use crate::scalar::instruction::RawInstruction;
 
+/// ITCM (Instruction Tightly Coupled Memory)
 pub struct Itcm {
     /// 8KB Itcm
     data: [RawInstruction; 2048],
@@ -12,6 +13,7 @@ pub struct Itcm {
 }
 
 impl Itcm {
+    /// Create a new ITCM with given latency (in cycles)
     pub fn new(latency: u8) -> Self {
         let mut data = [RawInstruction::default(); 2048];
         let nop = RawInstruction { data: 0x00000013 };
@@ -28,6 +30,7 @@ impl Itcm {
     }
 }
 
+/// ITCM read request future
 #[derive(Copy, Clone)]
 pub struct ItcmRead {
     pub addr: u32,
@@ -35,9 +38,12 @@ pub struct ItcmRead {
 }
 
 impl Future for ItcmRead {
+    /// Raw instruction read from ITCM
     type Output = RawInstruction;
+    /// ITCM reference as input context
     type Input = Itcm;
 
+    /// Poll the read request
     fn poll(&mut self, context: &mut Self::Input) -> Poll<Self::Output> {
         if self.remaining_cycles > 0 {
             self.remaining_cycles -= 1;
@@ -48,6 +54,7 @@ impl Future for ItcmRead {
 }
 
 impl Itcm {
+    /// Issue a read request to ITCM
     pub fn read(&self, addr: u32) -> ItcmRead {
         debug!("ITCM read request addr=0x{:08x}", addr);
         ItcmRead {
@@ -56,6 +63,7 @@ impl Itcm {
         }
     }
 
+    /// Internal read function
     pub(crate) fn _read(&self, addr: u32) -> RawInstruction {
         debug_assert!(addr % 4 == 0, "Unaligend ITCM read: 0x{:08x}", addr);
         let index = ((addr / 4) as usize) % self.data.len();
@@ -64,6 +72,7 @@ impl Itcm {
     }
 }
 
+/// DTCM (Data Tightly Coupled Memory)
 pub struct Dtcm {
     data: [RawInstruction; 8192],
     latency: u16

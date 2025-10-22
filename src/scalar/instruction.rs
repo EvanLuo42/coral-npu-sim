@@ -1,16 +1,19 @@
 use std::collections::VecDeque;
 use std::fmt::{Debug, Display, Formatter};
 
+/// A raw RISC-V instruction.
 #[derive(Copy, Clone, Default)]
 pub struct RawInstruction {
     pub data: u32
 }
 
+/// The type of RISC-V instruction.
 #[derive(Copy, Clone, Debug)]
 pub enum InstructionType {
     R, I, S, B, U, J, Unknown
 }
 
+/// A decoded RISC-V instruction.
 #[derive(Copy, Clone, Debug)]
 pub struct Instruction {
     pub opcode: u8,
@@ -24,6 +27,7 @@ pub struct Instruction {
 }
 
 impl Instruction {
+    /// Get the mnemonic of the instruction.
     fn mnemonic(&self) -> &'static str {
         match (self.opcode, self.funct3, self.funct7) {
             (0b0110011, 0b000, 0b0000000) => "add",
@@ -151,17 +155,20 @@ impl Display for Instruction {
     }
 }
 
+/// Sign-extend the given value from `bits` bits to 32 bits.
 pub fn sign_extend(value: i32, bits: u8) -> i32 {
     let shift = 32 - bits;
     (value << shift) >> shift
 }
 
+/// A simple instruction buffer that holds raw instructions.
 pub struct InstructionBuffer {
     pub queue: VecDeque<RawInstruction>,
     pub capacity: usize,
 }
 
 impl InstructionBuffer {
+    /// Create a new instruction buffer with the given capacity.
     pub fn new(capacity: usize) -> Self {
         Self {
             queue: VecDeque::with_capacity(capacity),
@@ -169,12 +176,14 @@ impl InstructionBuffer {
         }
     }
 
+    /// Push a raw instruction into the buffer if there is space.
     pub fn push(&mut self, instr: RawInstruction) {
         if self.queue.len() < self.capacity {
             self.queue.push_back(instr);
         }
     }
 
+    /// Pop a batch of raw instructions from the buffer.
     pub fn pop_batch(&mut self, n: usize) -> Vec<RawInstruction> {
         let mut out = Vec::new();
         for _ in 0..n {

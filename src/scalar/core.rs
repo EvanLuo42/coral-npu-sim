@@ -4,6 +4,7 @@ use crate::scalar::fetch::FetchStage;
 use crate::scalar::instruction::InstructionBuffer;
 use crate::scalar::memory::Itcm;
 
+/// The ScalarFrontend struct encapsulates the fetch, decode, and dispatch stages
 pub struct ScalarFrontend {
     pub fetch: FetchStage,
     pub decode: DecodeStage,
@@ -13,6 +14,7 @@ pub struct ScalarFrontend {
 }
 
 impl ScalarFrontend {
+    /// Creates a new ScalarFrontend instance with initialized stages and buffers
     pub fn new() -> Self {
         let instr_buffer = InstructionBuffer::new(4);
         let itcm = Itcm::new(1);
@@ -28,6 +30,7 @@ impl ScalarFrontend {
         }
     }
 
+    /// Advances the frontend by one tick, processing fetch, decode, and dispatch stages
     pub fn tick(&mut self) {
         self.fetch.tick(&mut self.instr_buffer, &mut self.itcm);
 

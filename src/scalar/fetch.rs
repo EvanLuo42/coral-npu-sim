@@ -2,12 +2,14 @@ use crate::common::io::{Future, Poll};
 use crate::scalar::instruction::InstructionBuffer;
 use crate::scalar::memory::{Itcm, ItcmRead};
 
+/// The FetchStage struct represents the fetch stage of the scalar pipeline
 pub struct FetchStage {
     pub pcs: [u32; 4],
     pub pending_reads: [Option<ItcmRead>; 4],
 }
 
 impl FetchStage {
+    /// Creates a new FetchStage instance with initial program counters and empty pending reads
     pub fn new() -> Self {
         Self {
             pcs: [0, 4, 8, 12],
@@ -15,6 +17,7 @@ impl FetchStage {
         }
     }
 
+    /// Advances the fetch stage by one tick, fetching instructions from ITCM and pushing them to the instruction buffer
     pub fn tick(&mut self, instr_buffer: &mut InstructionBuffer, itcm: &mut Itcm) {
         for lane in 0..4 {
             match &mut self.pending_reads[lane] {
