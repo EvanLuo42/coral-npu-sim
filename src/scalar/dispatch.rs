@@ -19,7 +19,7 @@ impl DispatchStage {
     pub fn new() -> Self {
         Self {
             queue: DispatchQueue::new(8),
-            scoreboard: Scoreboard::new(),
+            scoreboard: Scoreboard::new(4, 4),
             alus: (0..4).map(|_| AluUnit::new()).collect(),
             brus: (0..4).map(|_| BruUnit::new()).collect(),
             lsu: LsuUnit::new(),
@@ -29,89 +29,79 @@ impl DispatchStage {
 
     /// Tick the dispatch stage, dispatching up to 4 instructions
     pub fn tick(&mut self) {
-        for unit in &mut self.alus {
-            if let Some(rd) = unit.tick() {
-                self.scoreboard.clear(rd);
-                debug!("ALU writeback: clear rd={}", rd);
-            }
-        }
+        let mut issued = 0;
+        let mut remaining = VecDeque::new();
 
-        for unit in &mut self.brus {
-            if let Some(rd) = unit.tick() {
-                self.scoreboard.clear(rd);
-                debug!("BRU writeback: clear rd={}", rd);
-            }
-        }
+        debug!(
+            "Queue size: {}, ALUs busy: {}/{}",
+            self.queue.inner.len(),
+            self.alus.iter().filter(|u| u.busy).count(),
+            self.alus.len()
+        );
 
-        if let Some(rd) = self.lsu.tick() {
-            self.scoreboard.clear(rd);
-            debug!("LSU writeback: clear rd={}", rd);
-        }
-
-        if self.queue.inner.is_empty() {
-            return;
-        }
-
-        let mut issued = 0usize;
-
-        // Iterate through front instructions, but do not remove yet
-        let mut to_remove = Vec::new();
-
-        for (idx, instr) in self.queue.inner.iter().enumerate() {
-            if issued as u8 >= self.issue_width {
-                break;
-            }
-
-            if instr.typ == InstructionType::Unknown {
-                to_remove.push(idx);
+        while issued < self.issue_width && let Some(instr) = self.queue.inner.pop_front() {
+            if !self.scoreboard.can_issue(&instr) {
+                debug!("Stall: data hazard detected for {}", instr);
+                self.scoreboard.predict_issue(&instr);
+                remaining.push_back(instr);
                 continue;
             }
 
-            let rs1_busy = self.scoreboard.is_busy(instr.rs1);
-            let rs2_busy = self.scoreboard.is_busy(instr.rs2);
-            let rd_busy = self.scoreboard.is_busy(instr.rd);
-
-            if rs1_busy || rs2_busy || rd_busy {
-                debug!(
-                    "Stall instr {:?}: RAW/WAW hazard (rs1_busy={}, rs2_busy={}, rd_busy={})",
-                    instr, rs1_busy, rs2_busy, rd_busy
-                );
+            if !self.scoreboard.allocate_unit(&instr) {
+                debug!("Stall: no free execution unit for {}", instr);
+                remaining.push_back(instr);
                 continue;
             }
 
-            let alu_len = self.alus.len();
-            let bru_len = self.brus.len();
+            self.scoreboard.mark_issue(&instr);
+            debug!("Issued: {}", instr);
 
-            match instr.typ {
-                InstructionType::R | InstructionType::I => {
-                    if let Some(unit) = self.alus.get_mut(issued % alu_len) {
-                        self.scoreboard.set_busy(instr.rd);
+            match instr.opcode {
+                0b0110011 | 0b0010011 => { // ALU
+                    if let Some(unit) = self.alus.iter_mut().find(|u| !u.busy) {
                         unit.issue(instr);
-                        issued += 1;
-                        to_remove.push(idx);
                     }
                 }
-                InstructionType::B | InstructionType::J => {
-                    if let Some(unit) = self.brus.get_mut(issued % bru_len) {
-                        self.scoreboard.set_busy(instr.rd);
+                0b1100011 => { // BRANCH
+                    if let Some(unit) = self.brus.iter_mut().find(|u| !u.busy) {
                         unit.issue(instr);
-                        issued += 1;
-                        to_remove.push(idx);
                     }
                 }
-                InstructionType::S => {
-                    self.lsu.issue(instr);
-                    issued += 1;
-                    to_remove.push(idx);
+                0b0000011 | 0b0100011 => { // LOAD/STORE
+                    if !self.lsu.busy {
+                        self.lsu.issue(instr);
+                    }
                 }
                 _ => {}
             }
-        }
-        for &idx in to_remove.iter().rev() {
-            self.queue.inner.remove(idx);
+
+            issued += 1;
         }
 
-        debug!("Issued {} instructions this cycle", issued);
+        if !remaining.is_empty() {
+            debug!("Re-queue {} stalled instructions", remaining.len());
+        }
+        self.queue.inner = remaining;
+
+        for alu in &mut self.alus {
+            if let Some(done) = alu.tick() {
+                debug!("ALU complete: {}", done);
+                self.scoreboard.mark_complete(&done);
+                self.scoreboard.release_unit(&done);
+            }
+        }
+        for bru in &mut self.brus {
+            if let Some(done) = bru.tick() {
+                debug!("BRU complete: {}", done);
+                self.scoreboard.mark_complete(&done);
+                self.scoreboard.release_unit(&done);
+            }
+        }
+        if let Some(done) = self.lsu.tick() {
+            debug!("LSU complete: {}", done);
+            self.scoreboard.mark_complete(&done);
+            self.scoreboard.release_unit(&done);
+        }
     }
 }
 

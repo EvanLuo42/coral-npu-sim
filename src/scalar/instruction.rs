@@ -81,10 +81,10 @@ impl From<RawInstruction> for Instruction {
             }
             0b1100011 => {
                 // branch
-                let imm = (((((data >> 31) & 0x1) << 12)
+                let imm = ((((data >> 31) & 0x1) << 12)
                     | (((data >> 7) & 0x1) << 11)
                     | (((data >> 25) & 0x3F) << 5)
-                    | (((data >> 8) & 0xF) << 1)) as i32);
+                    | (((data >> 8) & 0xF) << 1)) as i32;
                 (InstructionType::B, sign_extend(imm, 13))
             }
             0b0110111 | 0b0010111 => {

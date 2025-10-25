@@ -29,6 +29,7 @@ impl FetchStage {
                         self.pending_reads[lane] = None;
                         instr_buffer.push(instr);
                         self.pcs[lane] += 4 * 4;
+                        self.pending_reads[lane] = Some(itcm.read(self.pcs[lane]));
                     }
                     Poll::Pending => {}
                 },
